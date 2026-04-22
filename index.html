@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ドアダンジョン</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:#c9a84c; --gold-light:#f0d080; --blood:#8b1a1a;
+    --dark:#0a0608; --deep:#110d10; --stone:#1e1820; --text:#e8d8c0; --dim:#8a7a68;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Crimson Text',serif;background:var(--dark);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:1000;opacity:0.5}
+  #game-wrapper{width:100%;max-width:560px;padding:0 16px 40px;position:relative}
+
+  .dungeon-title{font-family:'Cinzel Decorative',serif;font-size:clamp(20px,5vw,30px);color:var(--gold);text-align:center;padding:24px 0 6px;letter-spacing:.05em;text-shadow:0 0 30px rgba(201,168,76,.4),0 2px 4px rgba(0,0,0,.8)}
+  .floor-badge{text-align:center;font-size:13px;color:var(--dim);letter-spacing:.15em;text-transform:uppercase;margin-bottom:14px}
+  .floor-badge span{color:var(--gold-light);font-size:16px;font-weight:600}
+
+  .stats-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .stat-box{flex:1;min-width:70px;background:var(--stone);border:1px solid #3a2e38;border-radius:6px;padding:7px 10px;position:relative;overflow:hidden}
+  .stat-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.3),transparent)}
+  .stat-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:2px}
+  .stat-value{font-size:19px;font-weight:600;color:var(--gold-light)}
+  .hp-bar-bg{height:4px;background:#2a1a1a;border-radius:2px;margin-top:5px;overflow:hidden}
+  .hp-bar-fill{height:100%;border-radius:2px;transition:width .4s ease}
+
+  #arena{background:var(--deep);border:1px solid #3a2e38;border-radius:10px;min-height:230px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;margin-bottom:16px}
+  #arena::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 80%,rgba(139,26,26,.08) 0%,transparent 70%);pointer-events:none}
+  #arena::after{content:'';position:absolute;bottom:0;left:0;right:0;height:36px;background:repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(255,255,255,.03) 39px,rgba(255,255,255,.03) 40px);border-top:1px solid rgba(255,255,255,.05)}
+  #monster-display{position:relative;z-index:1;text-align:center;padding:14px;width:100%}
+  #monster-emoji{display:block;margin:0 auto 8px;filter:drop-shadow(0 4px 20px rgba(0,0,0,.8));transition:transform .3s ease,opacity .3s ease;width:96px;height:96px;image-rendering:pixelated}
+  #monster-emoji.shake{animation:mShake .4s ease}
+  @keyframes mShake{0%,100%{transform:translateX(0) rotate(0)}20%{transform:translateX(-8px) rotate(-3deg)}40%{transform:translateX(8px) rotate(3deg)}60%{transform:translateX(-5px) rotate(-2deg)}80%{transform:translateX(5px) rotate(1deg)}}
+  #monster-emoji.attack-player{animation:mAtk .5s ease}
+  @keyframes mAtk{0%{transform:translateX(0)}30%{transform:translateX(40px) scale(1.1)}60%{transform:translateX(-10px)}100%{transform:translateX(0)}}
+  #monster-emoji.die{animation:mDie .6s ease forwards}
+  @keyframes mDie{0%{transform:scale(1) rotate(0);opacity:1}50%{transform:scale(1.2) rotate(10deg);opacity:.7}100%{transform:scale(0) rotate(30deg);opacity:0}}
+  .monster-name{font-family:'Cinzel Decorative',serif;font-size:15px;color:var(--gold);margin-bottom:4px}
+  .boss-label{display:inline-block;background:linear-gradient(135deg,#8b1a1a,#c0392b);color:#fff;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;padding:2px 8px;border-radius:3px;margin-bottom:6px}
+  .monster-stats{font-size:14px;color:var(--dim);display:flex;gap:16px;justify-content:center}
+  .monster-stats span{color:var(--text)}
+  .enemy-hp-bar-bg{height:6px;background:#1a0a0a;border-radius:3px;margin:8px auto 0;width:80%;overflow:hidden;border:1px solid #3a1a1a}
+  .enemy-hp-bar-fill{height:100%;background:linear-gradient(90deg,#c0392b,#e74c3c);border-radius:3px;transition:width .3s ease}
+  #idle-state{text-align:center;color:var(--dim);padding:20px}
+  #idle-state .idle-icon{font-size:48px;margin-bottom:10px;opacity:.3}
+
+  .flash-red{animation:fRed .3s ease}
+  @keyframes fRed{0%,100%{background:var(--deep)}50%{background:rgba(139,26,26,.3)}}
+  .flash-gold{animation:fGold .4s ease}
+  @keyframes fGold{0%,100%{background:var(--deep)}50%{background:rgba(201,168,76,.15)}}
+
+  /* ===== DOOR SYSTEM ===== */
+  .doors-row{display:flex;gap:14px;margin-bottom:16px}
+  .door-col{flex:1;display:flex;flex-direction:column;align-items:center}
+  .door-btn{background:none;border:none;cursor:pointer;padding:0;width:100%;display:flex;justify-content:center;transition:transform .2s ease,filter .2s ease}
+  .door-btn:hover{transform:translateY(-5px)}
+  .door-btn:hover svg{filter:brightness(1.15) drop-shadow(0 8px 20px rgba(0,0,0,.8))}
+  .door-btn:active{transform:translateY(-1px)}
+  .door-btn:disabled{opacity:.3;cursor:not-allowed;transform:none !important}
+  .door-btn svg{width:100%;max-width:175px;height:auto;display:block;filter:drop-shadow(0 5px 15px rgba(0,0,0,.7));transition:filter .2s}
+  .door-btn.opening .door-panel-group{animation:doorSwing .45s ease forwards;transform-origin:5% 50%}
+  @keyframes doorSwing{0%{transform:perspective(400px) rotateY(0)}100%{transform:perspective(400px) rotateY(-65deg)}}
+  .door-label-row{display:flex;align-items:center;gap:6px;margin-top:8px}
+  .door-color-badge{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:2px 9px;border-radius:20px;font-family:'Crimson Text',serif;transition:all .3s}
+  .badge-unknown{background:rgba(58,46,56,.5);color:var(--dim);border:1px solid #3a2e38}
+  .badge-red{background:rgba(180,30,30,.22);color:#ff6060;border:1px solid rgba(180,30,30,.5)}
+  .badge-blue{background:rgba(30,80,180,.22);color:#60aaff;border:1px solid rgba(30,80,180,.5)}
+  .badge-green{background:rgba(30,150,70,.22);color:#60e890;border:1px solid rgba(30,150,70,.5)}
+  .badge-purple{background:rgba(130,30,180,.22);color:#d080ff;border:1px solid rgba(130,30,180,.5)}
+  .badge-gold{background:rgba(201,168,76,.18);color:#f0d060;border:1px solid rgba(201,168,76,.5)}
+  .door-direction{font-size:12px;color:var(--dim);letter-spacing:.08em}
+  .door-type-hint{font-size:11px;color:var(--dim);margin-top:3px;height:15px;text-align:center}
+  .door-prob{height:3px;width:80%;border-radius:2px;margin-top:4px;opacity:0;transition:opacity .3s}
+  .door-prob.visible{opacity:.55}
+
+  /* Skills */
+  #skills-panel{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:0}
+  .skill-chip{font-size:12px;padding:3px 10px;border-radius:20px;background:rgba(240,208,96,.1);border:1px solid rgba(240,208,96,.3);color:var(--gold-light);letter-spacing:.05em;cursor:default}
+  .skill-chip.lv2{background:rgba(168,85,247,.15);border-color:rgba(168,85,247,.5);color:#d080ff}
+  .skill-chip.lv3{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.6);color:#ff8888;animation:chipPulse 2s infinite}
+  @keyframes chipPulse{0%,100%{box-shadow:0 0 4px rgba(239,68,68,.2)}50%{box-shadow:0 0 10px rgba(239,68,68,.5)}}
+
+  /* Boss warning */
+  #boss-warning{display:none;background:linear-gradient(135deg,#3d0a0a,#1a0505);border:1px solid #8b1a1a;border-radius:8px;padding:10px 16px;text-align:center;margin-bottom:12px;animation:pulse 1.5s infinite}
+  #boss-warning.active{display:block}
+  @keyframes pulse{0%,100%{box-shadow:0 0 10px rgba(139,26,26,.3)}50%{box-shadow:0 0 25px rgba(139,26,26,.7)}}
+  .boss-warning-text{font-family:'Cinzel Decorative',serif;font-size:12px;color:#e74c3c;letter-spacing:.1em}
+
+  .ornament{display:flex;align-items:center;gap:12px;margin:10px 0;opacity:.22}
+  .ornament::before,.ornament::after{content:'';flex:1;height:1px;background:var(--gold)}
+  .ornament-icon{font-size:12px;color:var(--gold)}
+
+  #log{background:var(--stone);border:1px solid #3a2e38;border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.65;min-height:52px}
+  #log-list{list-style:none;max-height:110px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#3a2e38 transparent}
+  #log-list li{padding:1px 0;opacity:0;animation:logIn .2s ease forwards}
+  @keyframes logIn{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:translateX(0)}}
+  .log-damage{color:#e74c3c}.log-heal{color:#2ecc71}.log-atk{color:#e67e22}
+  .log-def{color:#3498db}.log-rare{color:#a855f7}.log-skill{color:#f0d060}
+  .log-victory{color:var(--gold-light)}.log-boss{color:#e74c3c;font-weight:600}.log-info{color:var(--dim)}
+
+  /* Reward modal */
+  #reward-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1100;align-items:center;justify-content:center;padding:16px}
+  #reward-modal.active{display:flex;animation:fadeIn .2s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .reward-card{background:var(--stone);border-radius:12px;padding:22px 18px;max-width:400px;width:100%;text-align:center;animation:slideUp .25s ease}
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .reward-title{font-family:'Cinzel Decorative',serif;font-size:16px;margin-bottom:4px}
+  .reward-sub{font-size:13px;color:var(--dim);margin-bottom:14px}
+  .reward-choices{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .reward-btn{flex:1;min-width:100px;max-width:145px;padding:12px 8px;border-radius:8px;border:1px solid;background:transparent;cursor:pointer;font-family:'Crimson Text',serif;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .2s}
+  .reward-btn:hover{transform:translateY(-2px)}
+  .reward-btn-icon{font-size:22px}.reward-btn-desc{font-size:11px;opacity:.65}
+  .rb-red{border-color:#c0392b;color:#e74c3c}.rb-red:hover{background:rgba(192,57,43,.15)}
+  .rb-blue{border-color:#2980b9;color:#3498db}.rb-blue:hover{background:rgba(41,128,185,.15)}
+  .rb-green{border-color:#27ae60;color:#2ecc71}.rb-green:hover{background:rgba(39,174,96,.15)}
+  .rb-purple{border-color:#8e44ad;color:#a855f7}.rb-purple:hover{background:rgba(142,68,173,.15)}
+  .rb-gold{border-color:var(--gold);color:var(--gold-light)}.rb-gold:hover{background:rgba(201,168,76,.12)}
+
+  /* Gameover */
+  #gameover-screen{display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:1050;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:28px;animation:fadeIn .5s ease}
+  #gameover-screen.active{display:flex}
+  .gameover-icon{font-size:66px;margin-bottom:14px}
+  .gameover-title{font-family:'Cinzel Decorative',serif;font-size:26px;color:var(--blood);margin-bottom:8px}
+  .gameover-sub{font-size:15px;color:var(--dim);margin-bottom:10px}
+  .gameover-inherit{font-size:13px;color:var(--gold-light);margin-bottom:22px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:6px;padding:8px 14px;display:inline-block}
+  .restart-btn{background:var(--stone);border:1px solid var(--gold);color:var(--gold);font-family:'Cinzel Decorative',serif;font-size:13px;padding:11px 26px;border-radius:6px;cursor:pointer;letter-spacing:.05em;transition:all .2s}
+  .restart-btn:hover{background:rgba(201,168,76,.1);box-shadow:0 0 20px rgba(201,168,76,.2)}
+
+  /* Active skill button */
+  .skill-chip.active-skill{cursor:pointer;border-color:rgba(231,76,60,.6);color:#ff8888}
+  .skill-chip.active-skill:hover{background:rgba(231,76,60,.2)}
+
+  /* BGM toggle */
+  #bgm-toggle{position:fixed;top:12px;right:12px;background:var(--stone);border:1px solid #3a2e38;color:var(--gold);font-size:18px;width:36px;height:36px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1200;transition:all .2s}
+  #bgm-toggle:hover{background:rgba(201,168,76,.1)}
+</style>
+</head>
+<body>
+<button id="bgm-toggle" onclick="toggleBGM()" title="BGM ON/OFF">🎵</button>
+
+<div id="game-wrapper">
+  <h1 class="dungeon-title">ドアダンジョン</h1>
+  <p class="floor-badge">階層 <span id="floor-num">1</span> / ∞ &nbsp;｜&nbsp; 🏅 最高 <span id="best-floor-num">1</span></p>
+
+  <div class="stats-bar">
+    <div class="stat-box">
+      <div class="stat-label">❤️ HP</div>
+      <div class="stat-value" id="hp-val">100</div>
+      <div class="hp-bar-bg"><div class="hp-bar-fill" id="hp-bar" style="width:100%"></div></div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">⚔️ 攻撃</div>
+      <div class="stat-value" id="atk-val">10</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">🛡 防御</div>
+      <div class="stat-value" id="def-val">0</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">🏆 勝利</div>
+      <div class="stat-value" id="wins-val">0</div>
+    </div>
+  </div>
+
+  <div id="skills-panel"></div>
+
+  <div id="boss-warning"><div class="boss-warning-text">⚠️ ボスが待ち構えている ⚠️</div></div>
+
+  <div id="arena">
+    <div id="idle-state">
+      <div class="idle-icon">🚪</div>
+      <div style="font-size:14px;letter-spacing:.05em">扉を選び、運命を切り開け</div>
+    </div>
+    <div id="monster-display" style="display:none">
+      <div class="boss-label" id="boss-badge" style="display:none">BOSS</div>
+      <canvas id="monster-emoji" width="96" height="96" style="image-rendering:pixelated;display:block;margin:0 auto 8px;"></canvas>
+      <div class="monster-name" id="monster-name"></div>
+      <div class="monster-stats">
+        <span>HP <span id="enemy-hp-val">0</span></span>
+        <span>ATK <span id="enemy-atk-val">0</span></span>
+      </div>
+      <div class="enemy-hp-bar-bg"><div class="enemy-hp-bar-fill" id="enemy-hp-bar" style="width:100%"></div></div>
+    </div>
+  </div>
+
+  <div id="gameover-screen">
+    <div class="gameover-icon">💀</div>
+    <div class="gameover-title">ゲームオーバー</div>
+    <div class="gameover-sub" id="gameover-sub"></div>
+    <div class="gameover-inherit" id="gameover-inherit"></div>
+    <button class="restart-btn" onclick="restartGame()">再び挑む</button>
+  </div>
+
+  <div class="doors-row" id="doors-row">
+    <div class="door-col">
+      <button class="door-btn" id="door-left" onclick="chooseDoor('left')">
+        <svg id="svg-left" viewBox="0 0 100 145"></svg>
+      </button>
+      <div class="door-label-row">
+        <span class="door-color-badge badge-unknown" id="badge-left">？の扉</span>
+        <span class="door-direction">左</span>
+      </div>
+      <div class="door-type-hint" id="hint-left"></div>
+      <div class="door-prob" id="prob-left"></div>
+    </div>
+    <div class="door-col">
+      <button class="door-btn" id="door-right" onclick="chooseDoor('right')">
+        <svg id="svg-right" viewBox="0 0 100 145"></svg>
+      </button>
+      <div class="door-label-row">
+        <span class="door-color-badge badge-unknown" id="badge-right">？の扉</span>
+        <span class="door-direction">右</span>
+      </div>
+      <div class="door-type-hint" id="hint-right"></div>
+      <div class="door-prob" id="prob-right"></div>
+    </div>
+  </div>
+
+  <div class="ornament"><span class="ornament-icon">⚜</span></div>
+
+  <div id="log">
+    <ul id="log-list"><li class="log-info">ダンジョンへようこそ。扉を選べ…</li></ul>
+  </div>
+</div>
+
+<div id="reward-modal">
+  <div class="reward-card" id="reward-card">
+    <div class="reward-title" id="reward-title">⚔️ 勝利！</div>
+    <div class="reward-sub" id="reward-sub">報酬を選べ</div>
+    <div class="reward-choices" id="reward-choices"></div>
+  </div>
+</div>
+
+<script>
+// ===========================
+// WEB AUDIO ENGINE
+// ===========================
+let audioCtx = null;
+let bgmSource = null;
+let bgmGain = null;
+let bgmEnabled = true;
+let currentBGM = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function toggleBGM() {
+  bgmEnabled = !bgmEnabled;
+  document.getElementById('bgm-toggle').textContent = bgmEnabled ? '🎵' : '🔇';
+  if (bgmGain) {
+    bgmGain.gain.setTargetAtTime(bgmEnabled ? 0.6 : 0, audioCtx.currentTime, 0.3);
+  }
+}
+
+// Simple chiptune BGM using oscillators
+function playBGM(type) {
+  if (currentBGM === type) return;
+  stopBGM();
+  currentBGM = type;
+  if (!bgmEnabled) return;
+  const ctx = getAudioCtx();
+  if (type === 'normal') startNormalBGM(ctx);
+  else if (type === 'boss') startBossBGM(ctx);
+}
+
+// BGM は AudioBufferSourceNode 1本で無限ループさせる方式に変更
+// → start/stop の二重呼び出しエラーが起きない
+
+function stopBGM() {
+  currentBGM = null;
+  if (bgmSource) {
+    try { bgmSource.stop(); } catch(e) {}
+    bgmSource = null;
+  }
+  if (bgmGain) {
+    try { bgmGain.disconnect(); } catch(e) {}
+    bgmGain = null;
+  }
+}
+
+// PCM バッファを生成してループ再生する（軽量版：低サンプルレート）
+function buildBGMBufferDual(ctx, melody, bass, melType, basType) {
+  const sr = Math.min(ctx.sampleRate, 22050); // 最大22050でOK
+  const totalDur = melody.reduce((s,n)=>s+n.d, 0);
+  const totalSamples = Math.round(totalDur * sr);
+  const buf = ctx.createBuffer(1, totalSamples, sr);
+  const data = buf.getChannelData(0);
+
+  // melody
+  let pos = 0;
+  for (const note of melody) {
+    const len = Math.round(note.d * sr);
+    if (note.f > 0 && len > 0) {
+      const vol = 0.07;
+      const fade = Math.min(Math.round(sr * 0.01), Math.floor(len / 2));
+      for (let i = 0; i < len; i++) {
+        let v;
+        if (melType === 'sawtooth') {
+          v = ((note.f * i / sr) % 1) * 2 - 1;
+        } else {
+          v = Math.sin(2 * Math.PI * note.f * i / sr) > 0 ? 1 : -1;
+        }
+        const env = i < fade ? i/fade : i > len-fade ? (len-i)/fade : 1;
+        if (pos + i < totalSamples) data[pos + i] += v * vol * env;
+      }
+    }
+    pos += len;
+  }
+
+  // bass (triangle)
+  const bassDur = bass.reduce((s,n)=>s+n.d, 0);
+  pos = 0;
+  for (const note of bass) {
+    const len = Math.round(note.d * sr);
+    if (note.f > 0 && len > 0) {
+      const vol = 0.05;
+      const fade = Math.min(Math.round(sr * 0.01), Math.floor(len / 2));
+      for (let i = 0; i < len; i++) {
+        const ph = (note.f * i / sr) % 1;
+        const v = basType === 'square'
+          ? (Math.sin(2*Math.PI*note.f*i/sr) > 0 ? 1 : -1)
+          : (ph < 0.5 ? 4*ph-1 : 3-4*ph);
+        const env = i < fade ? i/fade : i > len-fade ? (len-i)/fade : 1;
+        if (pos + i < totalSamples) data[pos + i] += v * vol * env;
+      }
+    }
+    pos += len;
+  }
+
+  return buf;
+}
+
+function startNormalBGM(ctx) {
+  const melody = [
+    {f:523,d:0.25},{f:659,d:0.25},{f:784,d:0.25},{f:880,d:0.25},
+    {f:1047,d:0.4},{f:988,d:0.15},{f:1047,d:0.2},{f:880,d:0.25},
+    {f:784,d:0.25},{f:698,d:0.25},{f:784,d:0.25},{f:659,d:0.25},
+    {f:523,d:0.5},{f:0,d:0.25},{f:523,d:0.25},
+    {f:659,d:0.25},{f:784,d:0.25},{f:880,d:0.25},{f:1047,d:0.25},
+    {f:988,d:0.4},{f:880,d:0.15},{f:784,d:0.2},{f:698,d:0.25},
+    {f:659,d:0.25},{f:587,d:0.25},{f:523,d:0.25},{f:494,d:0.25},
+    {f:523,d:0.75},{f:0,d:0.25},
+  ];
+  const bass = [
+    {f:131,d:0.5},{f:165,d:0.5},{f:131,d:0.5},{f:110,d:0.5},
+    {f:131,d:0.5},{f:165,d:0.5},{f:131,d:0.5},{f:110,d:0.5},
+    {f:131,d:0.5},{f:165,d:0.5},{f:131,d:0.5},{f:110,d:0.5},
+    {f:131,d:0.5},{f:165,d:0.5},{f:131,d:0.5},{f:110,d:0.5},
+  ];
+  try {
+    const buf = buildBGMBufferDual(ctx, melody, bass, 'square', 'triangle');
+    bgmGain = ctx.createGain();
+    bgmGain.gain.value = bgmEnabled ? 0.5 : 0;
+    bgmGain.connect(ctx.destination);
+    bgmSource = ctx.createBufferSource();
+    bgmSource.buffer = buf;
+    bgmSource.loop = true;
+    bgmSource.connect(bgmGain);
+    bgmSource.start();
+  } catch(e) { console.warn('BGM error:', e); }
+}
+
+function startBossBGM(ctx) {
+  const melody = [
+    {f:220,d:0.15},{f:233,d:0.15},{f:247,d:0.15},{f:0,d:0.05},
+    {f:294,d:0.3},{f:277,d:0.15},{f:261,d:0.15},{f:0,d:0.1},
+    {f:247,d:0.3},{f:233,d:0.15},{f:220,d:0.3},{f:0,d:0.25},
+    {f:196,d:0.15},{f:208,d:0.15},{f:220,d:0.15},{f:0,d:0.05},
+    {f:261,d:0.3},{f:247,d:0.15},{f:233,d:0.15},{f:0,d:0.1},
+    {f:220,d:0.4},{f:208,d:0.15},{f:196,d:0.3},{f:0,d:0.25},
+    {f:175,d:0.2},{f:196,d:0.2},{f:220,d:0.2},{f:247,d:0.2},
+    {f:261,d:0.5},{f:0,d:0.5},
+  ];
+  const bass = [
+    {f:55,d:0.3},{f:0,d:0.1},{f:55,d:0.2},{f:0,d:0.1},{f:55,d:0.3},
+    {f:65,d:0.3},{f:0,d:0.1},{f:65,d:0.2},{f:0,d:0.1},{f:65,d:0.3},
+    {f:58,d:0.3},{f:0,d:0.1},{f:58,d:0.2},{f:0,d:0.1},{f:58,d:0.3},
+    {f:49,d:0.3},{f:0,d:0.1},{f:49,d:0.2},{f:0,d:0.1},{f:49,d:0.3},
+    {f:55,d:0.3},{f:0,d:0.1},{f:55,d:0.2},{f:0,d:0.1},{f:55,d:0.3},
+    {f:65,d:0.3},{f:0,d:0.1},{f:65,d:0.2},{f:0,d:0.1},{f:65,d:0.3},
+    {f:58,d:0.3},{f:0,d:0.1},{f:58,d:0.2},{f:0,d:0.1},{f:58,d:0.3},
+    {f:49,d:1.0},
+  ];
+  try {
+    const buf = buildBGMBufferDual(ctx, melody, bass, 'sawtooth', 'square');
+    bgmGain = ctx.createGain();
+    bgmGain.gain.value = bgmEnabled ? 0.5 : 0;
+    bgmGain.connect(ctx.destination);
+    bgmSource = ctx.createBufferSource();
+    bgmSource.buffer = buf;
+    bgmSource.loop = true;
+    bgmSource.connect(bgmGain);
+    bgmSource.start();
+  } catch(e) { console.warn('BGM error:', e); }
+}
+
+// ===========================
+// SOUND EFFECTS
+// ===========================
+function playSE(type) {
+  const ctx = getAudioCtx();
+  const g = ctx.createGain();
+  g.connect(ctx.destination);
+  const now = ctx.currentTime;
+
+  const o = ctx.createOscillator();
+  o.connect(g);
+
+  if (type === 'attack') {
+    // Sword slash
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(300, now);
+    o.frequency.exponentialRampToValueAtTime(80, now+0.12);
+    g.gain.setValueAtTime(0.25, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now+0.15);
+    o.start(now); o.stop(now+0.15);
+  } else if (type === 'hit') {
+    // Receive damage
+    o.type = 'square';
+    o.frequency.setValueAtTime(150, now);
+    o.frequency.exponentialRampToValueAtTime(60, now+0.2);
+    g.gain.setValueAtTime(0.3, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now+0.25);
+    o.start(now); o.stop(now+0.25);
+    // Extra noise layer
+    const buf = ctx.createBuffer(1,ctx.sampleRate*0.1,ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for(let i=0;i<data.length;i++) data[i]=(Math.random()*2-1)*0.3;
+    const ns = ctx.createBufferSource();
+    const ng = ctx.createGain();
+    ns.buffer = buf;
+    ng.gain.setValueAtTime(0.2, now);
+    ng.gain.exponentialRampToValueAtTime(0.001, now+0.1);
+    ns.connect(ng); ng.connect(ctx.destination);
+    ns.start(now);
+  } else if (type === 'door') {
+    // Door creak
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(200, now);
+    o.frequency.linearRampToValueAtTime(80, now+0.4);
+    g.gain.setValueAtTime(0.15, now);
+    g.gain.setValueAtTime(0.1, now+0.2);
+    g.gain.exponentialRampToValueAtTime(0.001, now+0.45);
+    o.start(now); o.stop(now+0.45);
+  } else if (type === 'powerup') {
+    // Level up fanfare - 専用ノードのみ使用、o は破棄
+    o.disconnect();
+    const notes = [523,659,784,1047];
+    notes.forEach((freq, i) => {
+      const oo = ctx.createOscillator();
+      const gg = ctx.createGain();
+      oo.type = 'square';
+      oo.frequency.setValueAtTime(freq, now+i*0.08);
+      gg.gain.setValueAtTime(0, now+i*0.08);
+      gg.gain.setTargetAtTime(0.18, now+i*0.08, 0.01);
+      gg.gain.setTargetAtTime(0, now+i*0.08+0.1, 0.02);
+      oo.connect(gg); gg.connect(ctx.destination);
+      oo.start(now+i*0.08); oo.stop(now+i*0.08+0.15);
+    });
+    return;
+  } else if (type === 'crit') {
+    o.type = 'square';
+    o.frequency.setValueAtTime(880, now);
+    o.frequency.exponentialRampToValueAtTime(440, now+0.08);
+    g.gain.setValueAtTime(0.3, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now+0.1);
+    o.start(now); o.stop(now+0.1);
+  } else if (type === 'victory') {
+    // 専用ノードのみ使用、o は破棄
+    o.disconnect();
+    const notes = [523,659,784,1047,1047,784,1047];
+    notes.forEach((freq, i) => {
+      const oo = ctx.createOscillator();
+      const gg = ctx.createGain();
+      oo.type = 'square';
+      oo.frequency.setValueAtTime(freq, now+i*0.1);
+      gg.gain.setValueAtTime(0, now+i*0.1);
+      gg.gain.setTargetAtTime(0.2, now+i*0.1, 0.01);
+      gg.gain.setTargetAtTime(0, now+i*0.1+0.12, 0.02);
+      oo.connect(gg); gg.connect(ctx.destination);
+      oo.start(now+i*0.1); oo.stop(now+i*0.1+0.15);
+    });
+    return;
+  } else if (type === 'gameover') {
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, now);
+    o.frequency.linearRampToValueAtTime(55, now+1.0);
+    g.gain.setValueAtTime(0.25, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now+1.1);
+    o.start(now); o.stop(now+1.1);
+  }
+}
+
+
+// ===========================
+// PIXEL ART MONSTER RENDERER
+// ===========================
+// 各モンスターを 12x12 のカラーパレットで定義
+// 0=透明, 1-9=色インデックス
+const PIXEL_PALETTES = {
+  slime:   ['','#55dd55','#33bb33','#88ff88','#226622','#ffffff'],
+  bat:     ['','#554466','#332244','#9977aa','#221133','#ff99cc','#ccaacc'],
+  rat:     ['','#997755','#775533','#ccaa88','#443322','#ffddbb','#ff4444'],
+  goblin:  ['','#55aa44','#336633','#88cc66','#222211','#ffcc44','#884422'],
+  bug:     ['','#446622','#224400','#88aa44','#ffdd00','#ff6600','#222200'],
+  skeleton:['','#ddddcc','#aaaaaa','#ffffff','#888877','#333322','#cc2222'],
+  orc:     ['','#558833','#336622','#88bb55','#222200','#cc8844','#ff4422'],
+  wolf:    ['','#887766','#554433','#ccbbaa','#332211','#ffffff','#222222','#cc2200'],
+  goblin_king:['','#44bb44','#226622','#77ee77','#111100','#ffcc00','#cc4400','#ffffff'],
+  mummy:   ['','#ccbb99','#aa9977','#eeddbb','#665544','#cc8844','#443322'],
+  golem:   ['','#887799','#554466','#bbaacc','#332244','#cc9933','#ffffff'],
+  spider:  ['','#330033','#220022','#660066','#110011','#cc0066','#ff00aa'],
+  vampire: ['','#330011','#220000','#550022','#111111','#ddbbbb','#cc0000','#ffffff'],
+  golem2:  ['','#558899','#336677','#88bbcc','#224455','#ffcc44','#aaaaaa'],
+  wyvern:  ['','#336622','#224411','#55aa33','#111100','#cc6600','#ffaa00','#cc0000'],
+  dark_knight:['','#222233','#111122','#444455','#000011','#cc2222','#888899','#ffffff'],
+  dark_mage:  ['','#441155','#220033','#771188','#110022','#ffcc00','#cc88ff','#ffffff'],
+  giant_spider:['','#220022','#110011','#440044','#000000','#ee0044','#ff88aa'],
+  demon:   ['','#880000','#550000','#cc2200','#330000','#ffaa00','#ff4400','#ffffff'],
+  ninja:   ['','#111122','#000011','#333344','#000000','#888899','#ff2244','#aaaacc'],
+  fire_beast:['','#cc2200','#881100','#ff6600','#440000','#ffee00','#ff0000','#ffffff'],
+  death_lord:['','#221133','#110022','#442255','#000000','#cc00cc','#ff88ff','#330066'],
+  fallen_angel:['','#ccccff','#9999cc','#eeeeff','#667799','#ffffff','#ffcccc','#cc8899'],
+  ancient_golem:['','#665544','#443322','#998877','#221111','#ddcc99','#ccbbaa','#aa6633'],
+  guardian:['','#ccaa33','#aa8811','#eedd66','#664400','#ffffff','#ffcc00','#cc6600'],
+  abyss_demon:['','#110022','#000011','#330044','#000000','#8800cc','#cc44ff','#ff00ff'],
+  time_dragon:['','#002244','#001133','#004488','#000022','#00ccff','#88eeff','#ffffff'],
+  void_herald:['','#000000','#111111','#222222','#333333','#888888','#ffffff','#8800ff'],
+  doom_knight:['','#111111','#000000','#333333','#222222','#cc0000','#ff0000','#888888'],
+  chaos:   ['','#332200','#221100','#554400','#110000','#ff8800','#ffcc00','#ff0044'],
+  boss1:   ['','#223300','#112200','#446600','#001100','#88ff00','#00ff44','#ffee00'],
+  boss2:   ['','#001133','#000022','#003366','#000011','#0066cc','#00aaff','#ffffff'],
+  boss3:   ['','#330011','#220000','#660022','#110000','#cc0033','#ff0055','#ffaa00'],
+  boss4:   ['','#553311','#332200','#886633','#221100','#ddaa55','#ffdd88','#ffffff'],
+  boss5:   ['','#330000','#220000','#660000','#110000','#ff2200','#ff8800','#ffff00'],
+};
+
+// 12x12ドットのパターン定義（行ごとに12文字、0=透明、1-9=色）
+const PIXEL_PATTERNS = {
+  slime: [
+    '000011100000',
+    '001111111000',
+    '011111111100',
+    '011122121100',
+    '011121121100',
+    '011111111100',
+    '001333331000',
+    '000133310000',
+    '000011100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  bat: [
+    '100000000001',
+    '110001100011',
+    '111011011111',
+    '011111111110',
+    '001122211100',
+    '000152510000',
+    '000011100000',
+    '000001000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  rat: [
+    '000000001100',
+    '000000011110',
+    '001113111110',
+    '011113311111',
+    '011113411110',
+    '001111111100',
+    '000111110000',
+    '000110110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  goblin: [
+    '000011100000',
+    '000122210000',
+    '001122221000',
+    '001165610000',
+    '001124210000',
+    '001111110000',
+    '000131310000',
+    '000111110000',
+    '000100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  bug: [
+    '010000000100',
+    '011100001110',
+    '001233321000',
+    '001234321000',
+    '001235421000',
+    '001233321000',
+    '010111110100',
+    '010000000100',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  skeleton: [
+    '000033300000',
+    '000313130000',
+    '000313130000',
+    '000033300000',
+    '000141400000',
+    '001333310000',
+    '000131310000',
+    '000100100000',
+    '000100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  orc: [
+    '000111100000',
+    '001122110000',
+    '011165110000',
+    '011125610000',
+    '011122110000',
+    '001333110000',
+    '001111110000',
+    '001100110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  wolf: [
+    '011000000110',
+    '011100001110',
+    '001122211100',
+    '001121211000',
+    '001122110000',
+    '001131110000',
+    '001111110000',
+    '001110110000',
+    '001100110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  goblin_king: [
+    '000666600000',
+    '000111100000',
+    '001122110000',
+    '001175610000',
+    '001124610000',
+    '001111110000',
+    '006333360000',
+    '000111100000',
+    '000100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  mummy: [
+    '001111100000',
+    '011332110000',
+    '011313110000',
+    '011332110000',
+    '011111110000',
+    '011331110000',
+    '011111110000',
+    '011100110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  golem: [
+    '011111110000',
+    '111122110000',
+    '111121110000',
+    '111111110000',
+    '044414440000',
+    '111444110000',
+    '111111110000',
+    '011100110000',
+    '011100110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  spider: [
+    '100000000001',
+    '010000000010',
+    '001033310100',
+    '001032210000',
+    '001033310000',
+    '010111010000',
+    '100010000100',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  vampire: [
+    '000055500000',
+    '000511510000',
+    '001511151000',
+    '001566151000',
+    '001511151000',
+    '001755710000',
+    '000171710000',
+    '000111110000',
+    '000100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  golem2: [
+    '000444400000',
+    '004411440000',
+    '044411440000',
+    '044411440000',
+    '044444440000',
+    '005444500000',
+    '004444440000',
+    '004400440000',
+    '004400440000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  wyvern: [
+    '100000001100',
+    '110001111100',
+    '011111311110',
+    '001113311100',
+    '001136110000',
+    '001111110000',
+    '000111100000',
+    '000110110000',
+    '000110110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  dark_knight: [
+    '000766600000',
+    '007666770000',
+    '007667770000',
+    '007666670000',
+    '007666770000',
+    '005666550000',
+    '007756770000',
+    '007700770000',
+    '000700700000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  dark_mage: [
+    '000566500000',
+    '005666650000',
+    '056677650000',
+    '056676750000',
+    '005666550000',
+    '000676000000',
+    '000565000000',
+    '000111000000',
+    '000100000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  giant_spider: [
+    '100000000001',
+    '011000000110',
+    '001133311100',
+    '001134411000',
+    '001133311000',
+    '011111110000',
+    '100001000000',
+    '000010000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  demon: [
+    '100111001001',
+    '011611110110',
+    '011655110000',
+    '011651110000',
+    '011666110000',
+    '006111160000',
+    '011111110000',
+    '001100110000',
+    '001100110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  ninja: [
+    '000111100000',
+    '001666110000',
+    '001111110000',
+    '001555110000',
+    '011111110000',
+    '011111110000',
+    '001111110000',
+    '001100110000',
+    '001100110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  fire_beast: [
+    '001555100000',
+    '015666510000',
+    '156667651000',
+    '166636610000',
+    '165566510000',
+    '015666510000',
+    '011555110000',
+    '001111100000',
+    '001100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  death_lord: [
+    '000666600000',
+    '006666660000',
+    '066556660000',
+    '066526660000',
+    '066556660000',
+    '006666660000',
+    '006636660000',
+    '006600660000',
+    '006600660000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  fallen_angel: [
+    '100111001001',
+    '011566110110',
+    '011555110000',
+    '015555510000',
+    '011555110000',
+    '001555100000',
+    '001111100000',
+    '001100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  ancient_golem: [
+    '011111110000',
+    '111222110000',
+    '112622210000',
+    '112666210000',
+    '112622210000',
+    '111222110000',
+    '011233110000',
+    '011200110000',
+    '011200110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  guardian: [
+    '000555500000',
+    '005556650000',
+    '055566650000',
+    '055576750000',
+    '055566650000',
+    '005666650000',
+    '005656650000',
+    '005600650000',
+    '000500500000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  abyss_demon: [
+    '100666001001',
+    '016666660110',
+    '016667660000',
+    '016626660000',
+    '016667660000',
+    '006666660000',
+    '006666660000',
+    '006600660000',
+    '006600660000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  time_dragon: [
+    '100000001100',
+    '110001111100',
+    '011333611110',
+    '001136611100',
+    '001336360000',
+    '001363110000',
+    '000331100000',
+    '000310110000',
+    '000310110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  void_herald: [
+    '010111101000',
+    '011656110000',
+    '116666611000',
+    '116626611000',
+    '116666611000',
+    '011666110000',
+    '001666100000',
+    '001100100000',
+    '001100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  doom_knight: [
+    '000555500000',
+    '005666650000',
+    '056556650000',
+    '056526650000',
+    '056556650000',
+    '005666650000',
+    '005636650000',
+    '005600650000',
+    '005600650000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  chaos: [
+    '010000000100',
+    '011476611000',
+    '114667641100',
+    '146674461100',
+    '146747461100',
+    '114667641100',
+    '011476610100',
+    '001111100100',
+    '001100100000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  boss1: [
+    '100000000001',
+    '110111001011',
+    '011311110110',
+    '001332211100',
+    '001336610000',
+    '001333110000',
+    '000333100000',
+    '000330330000',
+    '000330330000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  boss2: [
+    '000677600000',
+    '006677760000',
+    '066577760000',
+    '066527660000',
+    '066577660000',
+    '006677660000',
+    '006367660000',
+    '006600660000',
+    '006600660000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  boss3: [
+    '100666001001',
+    '016666660110',
+    '166566660000',
+    '166526660000',
+    '166566660000',
+    '016666660000',
+    '006676660000',
+    '006600660000',
+    '006600660000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  boss4: [
+    '000666600000',
+    '006666660000',
+    '066466660000',
+    '066426660000',
+    '066466660000',
+    '006666660000',
+    '006636660000',
+    '006600660000',
+    '006600660000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+  boss5: [
+    '100000001100',
+    '110001111100',
+    '011333511110',
+    '001135611100',
+    '001335360000',
+    '001363110000',
+    '000531100000',
+    '000510110000',
+    '000510110000',
+    '000000000000',
+    '000000000000',
+    '000000000000',
+  ],
+};
+
+function drawMonsterDot(key) {
+  const canvas = document.getElementById('monster-emoji');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 96, 96);
+  const pattern = PIXEL_PATTERNS[key] || PIXEL_PATTERNS['slime'];
+  const palette = PIXEL_PALETTES[key] || PIXEL_PALETTES['slime'];
+  const scale = 8; // 12x12 * 8 = 96px
+  for (let row = 0; row < 12; row++) {
+    for (let col = 0; col < 12; col++) {
+      const c = parseInt(pattern[row][col], 10);
+      if (c === 0) continue;
+      ctx.fillStyle = palette[c] || '#ff00ff';
+      ctx.fillRect(col * scale, row * scale, scale, scale);
+    }
+  }
+}
+
+// ===========================
+// DOOR TYPE DEFINITIONS
+// ===========================
+const DOOR_TYPES = [
+  {
+    id:'red', label:'赤の扉', prob:27, hint:'攻撃力・武器',
+    badgeClass:'badge-red', probColor:'#e74c3c', rewardClass:'rb-red',
+    frameColor:'#8b2020', frameLight:'#cc4444', frameDark:'#3a0a0a',
+    woodLight:'#ff7755', woodMid:'#882222', woodDark:'#330808',
+    glowColor:'rgba(220,40,40,0.45)', runeColor:'#ff8888', rune:'⚔',
+    panelFill:'rgba(200,40,40,0.12)',
+    rewards:[
+      {icon:'⚔️',label:'攻撃力 +5',desc:'刃を研ぐ',fn:s=>{s.atk+=5;return '⚔️ <b class="log-atk">攻撃力 +5！</b>'}},
+      {icon:'🗡️',label:'攻撃 +3 & クリ率↑',desc:'鋭利な一撃',fn:s=>{s.atk+=3;s.crit=Math.min(0.6,(s.crit||0.05)+0.12);return '🗡️ <b class="log-atk">攻撃+3 & クリティカル率UP！</b>'}},
+      {icon:'🔥',label:'攻撃 +8',desc:'炎の刃',fn:s=>{s.atk+=8;return '🔥 <b class="log-atk">攻撃力 +8！</b>'}},
+    ]
+  },
+  {
+    id:'blue', label:'青の扉', prob:27, hint:'防御力・防具',
+    badgeClass:'badge-blue', probColor:'#3498db', rewardClass:'rb-blue',
+    frameColor:'#1a3a88', frameLight:'#4488cc', frameDark:'#020e2e',
+    woodLight:'#5599ff', woodMid:'#1a2e88', woodDark:'#050e30',
+    glowColor:'rgba(40,100,220,0.45)', runeColor:'#88bbff', rune:'🛡',
+    panelFill:'rgba(30,80,200,0.12)',
+    rewards:[
+      {icon:'🛡️',label:'防御力 +8',desc:'鎧を装備',fn:s=>{s.def=(s.def||0)+8;return '🛡️ <b class="log-def">防御力 +8！</b>'}},
+      {icon:'💎',label:'防御 +5 & HP +30',desc:'硬い守り',fn:s=>{s.def=(s.def||0)+5;s.hp=Math.min(s.maxHP,s.hp+30);return '💎 <b class="log-def">防御+5 & HP+30！</b>'}},
+      {icon:'⚡',label:'防御 +10',desc:'鋼鉄の盾',fn:s=>{s.def=(s.def||0)+10;return '⚡ <b class="log-def">防御力 +10！</b>'}},
+    ]
+  },
+  {
+    id:'green', label:'緑の扉', prob:26, hint:'回復・アイテム',
+    badgeClass:'badge-green', probColor:'#2ecc71', rewardClass:'rb-green',
+    frameColor:'#1a6633', frameLight:'#44cc77', frameDark:'#051a0c',
+    woodLight:'#55ee88', woodMid:'#1a6633', woodDark:'#051a0c',
+    glowColor:'rgba(30,180,80,0.45)', runeColor:'#88ffbb', rune:'✚',
+    panelFill:'rgba(30,160,70,0.12)',
+    rewards:[
+      {icon:'❤️',label:'HP +80',desc:'薬草で回復',fn:s=>{s.hp=Math.min(s.maxHP,s.hp+80);return '❤️ <b class="log-heal">HP +80回復！</b>'}},
+      {icon:'💊',label:'最大HP +40',desc:'体力強化',fn:s=>{s.maxHP+=40;s.hp=Math.min(s.maxHP,s.hp+40);return '💊 <b class="log-heal">最大HP +40！</b>'}},
+      {icon:'🌿',label:'完全回復',desc:'神秘の秘薬',fn:s=>{s.hp=s.maxHP;return '🌿 <b class="log-heal">HPが完全回復した！</b>'}},
+    ]
+  },
+  {
+    id:'purple', label:'紫の扉', prob:10, hint:'レア・全強化',
+    badgeClass:'badge-purple', probColor:'#a855f7', rewardClass:'rb-purple',
+    frameColor:'#6622aa', frameLight:'#cc66ff', frameDark:'#15002e',
+    woodLight:'#cc88ff', woodMid:'#5522aa', woodDark:'#150030',
+    glowColor:'rgba(150,40,240,0.55)', runeColor:'#dd99ff', rune:'✦',
+    panelFill:'rgba(140,40,220,0.14)',
+    rewards:[
+      {icon:'✨',label:'全能力強化',desc:'神秘の祝福',fn:s=>{s.atk+=5;s.def=(s.def||0)+5;s.hp=Math.min(s.maxHP,s.hp+50);return '✨ <b class="log-rare">攻撃+5 / 防御+5 / HP+50！</b>'}},
+      {icon:'🔮',label:'攻撃 +8 & 防御 +8',desc:'古代の力',fn:s=>{s.atk+=8;s.def=(s.def||0)+8;return '🔮 <b class="log-rare">攻撃+8 & 防御+8！</b>'}},
+      {icon:'👑',label:'全能力大強化',desc:'覇王の証',fn:s=>{s.atk+=6;s.def=(s.def||0)+6;s.maxHP+=30;s.hp=Math.min(s.maxHP,s.hp+60);return '👑 <b class="log-rare">全能力大強化！</b>'}},
+    ]
+  },
+  {
+    id:'gold', label:'金の扉', prob:10, hint:'スキル・技習得',
+    badgeClass:'badge-gold', probColor:'#f0d060', rewardClass:'rb-gold',
+    frameColor:'#8b6a0a', frameLight:'#f0d060', frameDark:'#2a1800',
+    woodLight:'#ffe080', woodMid:'#8b6a0a', woodDark:'#2a1800',
+    glowColor:'rgba(220,180,40,0.6)', runeColor:'#ffe090', rune:'★',
+    panelFill:'rgba(200,160,40,0.12)',
+    rewards:[
+      {icon:'🌪️',label:'烈風斬',desc:'発動→ATK永続+15',fn:s=>{addOrLevelSkill(s,'烈風斬','🌪️','active');return '🌪️ <b class="log-skill">スキル「烈風斬」を習得/強化！（戦闘中タップで ATK 永続+15）</b>'}},
+      {icon:'🩸',label:'吸血',desc:'攻撃時HP吸収',fn:s=>{addOrLevelSkill(s,'吸血','🩸','passive','lifesteal',0.4);return '🩸 <b class="log-skill">パッシブ「吸血」習得/強化！</b>'}},
+      {icon:'⚡',label:'雷撃',desc:'毎ターン追加ダメ',fn:s=>{addOrLevelSkill(s,'雷撃','⚡','passive','bonus_dmg',12);return '⚡ <b class="log-skill">パッシブ「雷撃」習得/強化！</b>'}},
+      {icon:'🌀',label:'再生',desc:'毎ターンHP回復',fn:s=>{addOrLevelSkill(s,'再生','🌀','passive','regen',10);return '🌀 <b class="log-skill">パッシブ「再生」習得/強化！</b>'}},
+      {icon:'🐉',label:'竜の怒り',desc:'クリ発動時2倍ダメ',fn:s=>{addOrLevelSkill(s,'竜の怒り','🐉','passive','crit_amp',0.5);return '🐉 <b class="log-skill">パッシブ「竜の怒り」習得/強化！</b>'}},
+      {icon:'🧲',label:'鉄壁',desc:'被攻撃ごとに防御+1',fn:s=>{addOrLevelSkill(s,'鉄壁','🧲','passive','def_regen',3);return '🧲 <b class="log-skill">パッシブ「鉄壁」習得/強化！</b>'}},
+      {icon:'💀',label:'死神の鎌',desc:'低HP時ダメ増加',fn:s=>{addOrLevelSkill(s,'死神の鎌','💀','passive','low_hp_amp',0.3);return '💀 <b class="log-skill">パッシブ「死神の鎌」習得/強化！</b>'}},
+      {icon:'🛡',label:'反射の盾',desc:'受けたダメを反射',fn:s=>{addOrLevelSkill(s,'反射の盾','🛡','passive','reflect',0.2);return '🛡 <b class="log-skill">パッシブ「反射の盾」習得/強化！</b>'}},
+    ]
+  },
+];
+
+// ===========================
+// PASSIVE SKILL SYSTEM
+// ===========================
+function addOrLevelSkill(s, name, emoji, type, subtype, baseVal) {
+  const existing = s.skills.find(sk => sk.name === name);
+  if (existing) {
+    existing.level = (existing.level || 1) + 1;
+    if (type === 'active') {
+      existing.atkBonus = (existing.atkBonus || 12) + 6;
+    } else {
+      existing.val = baseVal * existing.level * 1.5;
+    }
+  } else {
+    const sk = { name, emoji, level: 1 };
+    if (type === 'active') {
+      sk.active = true;
+      sk.atkBonus = 15;
+    } else {
+      sk.passive = true;
+      sk.type = subtype;
+      sk.val = baseVal;
+    }
+    s.skills.push(sk);
+  }
+  renderSkills();
+}
+
+// ===========================
+// SVG DOOR BUILDER
+// ===========================
+function buildMysteryDoorSVG(svgEl) {
+  svgEl.innerHTML = `
+    <defs>
+      <linearGradient id="mstG" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#14101c"/>
+        <stop offset="50%" stop-color="#1e1828"/>
+        <stop offset="100%" stop-color="#14101c"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="100" height="145" rx="4" fill="#0e0c16"/>
+    <rect x="0" y="0" width="100" height="22" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="22" width="100" height="20" fill="#161220" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="42" width="100" height="22" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="64" width="100" height="20" fill="#161220" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="84" width="100" height="22" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="106" width="100" height="20" fill="#161220" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="126" width="100" height="19" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <path d="M12,55 Q50,8 88,55 L88,140 L12,140 Z" fill="#08060e"/>
+    <path d="M12,55 Q50,8 88,55" fill="none" stroke="#2e2840" stroke-width="1.5"/>
+    <path d="M14,57 Q50,13 86,57 L86,139 L14,139 Z" fill="#060410"/>
+    <text x="50" y="100" text-anchor="middle" font-size="32" fill="#2e2840" font-family="serif" opacity=".7">?</text>
+    <path d="M12,55 Q50,8 88,55" fill="none" stroke="#3a3050" stroke-width=".6" opacity=".5"/>
+  `;
+}
+
+function buildRevealedDoorSVG(svgEl, t) {
+  const uid = t.id;
+  svgEl.innerHTML = `
+    <defs>
+      <linearGradient id="wood${uid}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="${t.woodDark}"/>
+        <stop offset="20%" stop-color="${t.woodMid}"/>
+        <stop offset="50%" stop-color="${t.woodMid}"/>
+        <stop offset="80%" stop-color="${t.woodMid}"/>
+        <stop offset="100%" stop-color="${t.woodDark}"/>
+      </linearGradient>
+      <linearGradient id="frame${uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${t.frameLight}"/>
+        <stop offset="40%" stop-color="${t.frameColor}"/>
+        <stop offset="100%" stop-color="${t.frameDark}"/>
+      </linearGradient>
+      <radialGradient id="glow${uid}" cx="50%" cy="45%" r="55%">
+        <stop offset="0%" stop-color="${t.woodLight}" stop-opacity=".22"/>
+        <stop offset="100%" stop-color="${t.woodLight}" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="glf${uid}" x="-25%" y="-25%" width="150%" height="150%">
+        <feGaussianBlur stdDeviation="2.5" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <rect x="0" y="0" width="100" height="145" rx="4" fill="#0e0c16"/>
+    <rect x="0" y="0" width="100" height="22" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="22" width="100" height="20" fill="#161220" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="42" width="100" height="22" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="64" width="100" height="20" fill="#161220" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="84" width="100" height="22" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="106" width="100" height="20" fill="#161220" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="0" y="126" width="100" height="19" fill="#1a1525" stroke="#2a2035" stroke-width=".4"/>
+    <path d="M10,56 Q50,6 90,56 L90,141 L10,141 Z" fill="url(#frame${uid})" opacity=".35"/>
+    <path d="M10,56 Q50,6 90,56" fill="none" stroke="${t.frameLight}" stroke-width="2.5"/>
+    <path d="M12,58 Q50,10 88,58" fill="none" stroke="${t.runeColor}" stroke-width=".7" opacity=".5"/>
+    <g class="door-panel-group">
+      <path d="M13,58 Q50,12 87,58 L87,140 L13,140 Z" fill="url(#wood${uid})"/>
+      <line x1="25" y1="62" x2="25" y2="140" stroke="${t.woodLight}" stroke-width=".35" opacity=".12"/>
+      <line x1="38" y1="60" x2="38" y2="140" stroke="${t.woodLight}" stroke-width=".35" opacity=".10"/>
+      <line x1="50" y1="59" x2="50" y2="140" stroke="${t.woodLight}" stroke-width=".4" opacity=".14"/>
+      <line x1="62" y1="60" x2="62" y2="140" stroke="${t.woodLight}" stroke-width=".35" opacity=".10"/>
+      <line x1="75" y1="62" x2="75" y2="140" stroke="${t.woodLight}" stroke-width=".35" opacity=".12"/>
+      <path d="M20,68 L80,68 L80,100 L20,100 Z" fill="${t.panelFill}" stroke="${t.frameLight}" stroke-width=".8" opacity=".7" rx="2"/>
+      <path d="M22,70 L78,70 L78,98 L22,98 Z" fill="none" stroke="${t.runeColor}" stroke-width=".4" opacity=".3"/>
+      <path d="M18,108 L82,108 L82,135 L18,135 Z" fill="${t.panelFill}" stroke="${t.frameLight}" stroke-width=".8" opacity=".7" rx="2"/>
+      <path d="M20,110 L80,110 L80,133 L20,133 Z" fill="none" stroke="${t.runeColor}" stroke-width=".4" opacity=".3"/>
+      <path d="M13,58 Q50,12 87,58 L87,140 L13,140 Z" fill="url(#glow${uid})"/>
+      <text x="50" y="90" text-anchor="middle" font-size="20" fill="${t.runeColor}" font-family="serif" filter="url(#glf${uid})" opacity=".9">${t.rune}</text>
+      <circle cx="17" cy="62" r="2.2" fill="${t.frameColor}" stroke="${t.frameLight}" stroke-width=".6"/>
+      <circle cx="83" cy="62" r="2.2" fill="${t.frameColor}" stroke="${t.frameLight}" stroke-width=".6"/>
+      <circle cx="17" cy="137" r="2.2" fill="${t.frameColor}" stroke="${t.frameLight}" stroke-width=".6"/>
+      <circle cx="83" cy="137" r="2.2" fill="${t.frameColor}" stroke="${t.frameLight}" stroke-width=".6"/>
+      <circle cx="74" cy="120" r="4.5" fill="${t.frameColor}" stroke="${t.frameLight}" stroke-width=".7"/>
+      <circle cx="74" cy="120" r="2" fill="${t.runeColor}" opacity=".8"/>
+      <circle cx="74" cy="126" r="1.4" fill="${t.woodDark}"/>
+      <rect x="73" y="126" width="2" height="3" fill="${t.woodDark}"/>
+      <path d="M13,58 Q50,12 87,58" fill="none" stroke="${t.woodLight}" stroke-width=".9" opacity=".35"/>
+      <path d="M13,58 Q50,12 87,58 L87,140 L13,140 Z" fill="none" stroke="url(#frame${uid})" stroke-width="1.2"/>
+    </g>
+    <rect x="0" y="55" width="10" height="90" fill="#0e0c16" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="90" y="55" width="10" height="90" fill="#0e0c16" stroke="#2a2035" stroke-width=".4"/>
+    <rect x="5" y="138" width="90" height="5" rx="1" fill="#1a1525" stroke="#2a2035" stroke-width=".5"/>
+  `;
+}
+
+// ===========================
+// DOOR ASSIGNMENT
+// ===========================
+let doorTypes = { left: null, right: null };
+
+function rollDoorType() {
+  const pool = [];
+  DOOR_TYPES.forEach(t => { for(let i=0;i<t.prob;i++) pool.push(t); });
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+let lastDoorIds = [];
+
+function assignNewDoors() {
+  doorTypes.left = rollDoorTypeAvoid(lastDoorIds);
+  doorTypes.right = rollDoorTypeAvoid([doorTypes.left.id]);
+  lastDoorIds = [doorTypes.left.id, doorTypes.right.id];
+  renderDoors(true); // 常に色を表示
+}
+
+function rollDoorTypeAvoid(avoidIds) {
+  const pool = [];
+  DOOR_TYPES.forEach(t => {
+    // 前回と同じ色は重みを半分に（ランダム緩和）
+    const weight = avoidIds.includes(t.id) ? Math.max(1, Math.floor(t.prob * 0.5)) : t.prob;
+    for(let i = 0; i < weight; i++) pool.push(t);
+  });
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function renderDoors(revealed) {
+  ['left','right'].forEach(side => {
+    const t = doorTypes[side];
+    const svgEl = document.getElementById(`svg-${side}`);
+    if (revealed) buildRevealedDoorSVG(svgEl, t);
+    else buildMysteryDoorSVG(svgEl);
+    const badge = document.getElementById(`badge-${side}`);
+    badge.textContent = revealed ? t.label : '？の扉';
+    badge.className = 'door-color-badge ' + (revealed ? t.badgeClass : 'badge-unknown');
+    const hint = document.getElementById(`hint-${side}`);
+    hint.textContent = revealed ? t.hint : '';
+    const prob = document.getElementById(`prob-${side}`);
+    prob.style.background = t.probColor;
+    prob.classList.toggle('visible', revealed);
+  });
+}
+
+// ===========================
+// MONSTER TABLES BY ZONE
+// ===========================
+// Zone 1: floors 1-10
+const MONSTERS_Z1 = [
+  {name:"スライム",key:"slime"},{name:"コウモリ",key:"bat"},
+  {name:"ネズミ",key:"rat"},{name:"小鬼",key:"goblin"},
+  {name:"毒虫",key:"bug"},{name:"骸骨兵",key:"skeleton"},
+];
+// Zone 2: floors 11-20
+const MONSTERS_Z2 = [
+  {name:"オーク",key:"orc"},{name:"魔狼",key:"wolf"},
+  {name:"ゴブリン将軍",key:"goblin_king"},{name:"ミイラ",key:"mummy"},
+  {name:"石像兵",key:"golem"},{name:"毒蜘蛛",key:"spider"},
+];
+// Zone 3: floors 21-30
+const MONSTERS_Z3 = [
+  {name:"ヴァンパイア",key:"vampire"},{name:"ゴーレム",key:"golem2"},
+  {name:"魔竜の子",key:"wyvern"},{name:"冥界の騎士",key:"dark_knight"},
+  {name:"暗黒魔術師",key:"dark_mage"},{name:"巨大蜘蛛",key:"giant_spider"},
+];
+// Zone 4: floors 31-40
+const MONSTERS_Z4 = [
+  {name:"悪魔",key:"demon"},{name:"影の刺客",key:"ninja"},
+  {name:"炎獣",key:"fire_beast"},{name:"冥界大王",key:"death_lord"},
+  {name:"堕天使",key:"fallen_angel"},{name:"古代ゴーレム",key:"ancient_golem"},
+];
+// Zone 5: floors 41+
+const MONSTERS_Z5 = [
+  {name:"神話の守護者",key:"guardian"},{name:"深淵の悪魔",key:"abyss_demon"},
+  {name:"時の龍",key:"time_dragon"},{name:"虚無の使者",key:"void_herald"},
+  {name:"滅びの騎士",key:"doom_knight"},{name:"混沌の化身",key:"chaos"},
+];
+
+const BOSSES = [
+  {floor:10, name:"混沌の番人",   key:"boss1", hpMul:2.0, atkMul:1.3},
+  {floor:20, name:"死の騎士",     key:"boss2", hpMul:2.2, atkMul:1.4},
+  {floor:30, name:"深淵の魔王",   key:"boss3", hpMul:2.4, atkMul:1.5},
+  {floor:40, name:"神話の巨人",   key:"boss4", hpMul:2.6, atkMul:1.6},
+  {floor:50, name:"滅びの竜神",   key:"boss5", hpMul:2.8, atkMul:1.7},
+];
+
+function getMonsterPool(floor) {
+  if (floor <= 10)  return MONSTERS_Z1;
+  if (floor <= 20)  return MONSTERS_Z2;
+  if (floor <= 30)  return MONSTERS_Z3;
+  if (floor <= 40)  return MONSTERS_Z4;
+  return MONSTERS_Z5;
+}
+
+// ===========================
+// GAME STATE
+// ===========================
+let inheritBonus = { atk: 0, def: 0, maxHP: 0 }; // persists across deaths
+let bestFloor = 1; // 最高到達階
+let state = {};
+let isFighting = false;
+let currentEnemyMaxHP = 1;
+let battleInterval = null;
+
+function initState() {
+  return {
+    hp: 100 + inheritBonus.maxHP,
+    maxHP: 100 + inheritBonus.maxHP,
+    atk: 10 + inheritBonus.atk,
+    def: inheritBonus.def,
+    floor: 1,
+    wins: 0,
+    crit: 0.05,
+    skills: []
+  };
+}
+
+// ===========================
+// UI
+// ===========================
+function updateStats() {
+  const s = state;
+  document.getElementById('hp-val').textContent = Math.max(0, s.hp);
+  document.getElementById('atk-val').textContent = s.atk;
+  document.getElementById('def-val').textContent = s.def || 0;
+  document.getElementById('floor-num').textContent = s.floor;
+  if (s.floor > bestFloor) bestFloor = s.floor;
+  document.getElementById('best-floor-num').textContent = bestFloor;
+  document.getElementById('wins-val').textContent = s.wins;
+  const pct = Math.max(0, (s.hp / s.maxHP) * 100);
+  const bar = document.getElementById('hp-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 50
+    ? 'linear-gradient(90deg,#8b1a1a,#d43a3a)'
+    : pct > 25
+    ? 'linear-gradient(90deg,#8b4a1a,#e07020)'
+    : 'linear-gradient(90deg,#5a0a0a,#ff2020)';
+  const isBoss = BOSSES.some(b => b.floor === s.floor);
+  if (isBoss) document.getElementById('boss-warning').classList.add('active');
+  else document.getElementById('boss-warning').classList.remove('active');
+}
+
+function addLog(text, cls = '') {
+  const list = document.getElementById('log-list');
+  const li = document.createElement('li');
+  li.innerHTML = text;
+  if (cls) li.className = cls;
+  list.appendChild(li);
+  while (list.children.length > 14) list.removeChild(list.firstChild);
+  list.scrollTop = list.scrollHeight;
+}
+
+function setDoors(enabled) {
+  document.getElementById('door-left').disabled = !enabled;
+  document.getElementById('door-right').disabled = !enabled;
+}
+
+function getLevelClass(lv) {
+  if (lv >= 3) return 'lv3';
+  if (lv >= 2) return 'lv2';
+  return '';
+}
+
+function renderSkills() {
+  document.getElementById('skills-panel').innerHTML = state.skills.map(sk => {
+    const lv = sk.level || 1;
+    const lvText = lv > 1 ? ` Lv${lv}` : '';
+    const cls = getLevelClass(lv);
+    const activeCls = sk.active ? ' active-skill' : '';
+    const atkVal = sk.active ? sk.atkBonus || 15 : 0;
+    const onclick = sk.active ? `onclick="useActiveSkill('${sk.name}')"` : '';
+    const titleTxt = sk.active ? `タップして発動！ ATK永続+${atkVal}` : '';
+    return `<span class="skill-chip ${cls}${activeCls}" ${onclick} title="${titleTxt}">${sk.emoji} ${sk.name}${lvText}${sk.active ? ` (+${atkVal})` : ''}</span>`;
+  }).join('');
+}
+
+function useActiveSkill(name) {
+  if (!isFighting) return;
+  const sk = state.skills.find(s => s.name === name && s.active);
+  if (!sk) return;
+  const bonus = sk.atkBonus || 15;
+  state.atk += bonus;
+  addLog(`🌪️ <b class="log-skill">烈風斬発動！ ATK 永続+${bonus} (現在ATK:${state.atk})</b>`, 'log-skill');
+  state.skills = state.skills.filter(s => s.name !== name);
+  renderSkills();
+  updateStats();
+  playSE('powerup');
+}
+
+// ===========================
+// BATTLE
+// ===========================
+function chooseDoor(side) {
+  if (isFighting || battleInterval) return;
+  renderDoors(true);
+  const btn = document.getElementById(`door-${side}`);
+  btn.classList.add('opening');
+  playSE('door');
+
+  setTimeout(() => {
+    btn.classList.remove('opening');
+    isFighting = true;
+    setDoors(false);
+    const doorType = doorTypes[side];
+    addLog(`🚪 <b>${doorType.label}</b>を開けた…`);
+    startEncounter(doorType);
+  }, 480);
+}
+
+function startEncounter(doorType) {
+  const s = state;
+  const bossData = BOSSES.find(b => b.floor === s.floor);
+  const isBoss = !!bossData;
+  let monster, eHP, eATK;
+
+  if (isBoss) {
+    monster = { name: bossData.name, key: bossData.key };
+    const baseHP = 80 + s.floor * 10;
+    const baseATK = 14 + s.floor * 2;
+    eHP = Math.floor(baseHP * bossData.hpMul);
+    eATK = Math.floor(baseATK * bossData.atkMul);
+    document.getElementById('arena').classList.add('flash-red');
+    setTimeout(() => document.getElementById('arena').classList.remove('flash-red'), 300);
+    addLog(`⚠️ <b class="log-boss">ボス出現！ ${monster.name}</b>`, 'log-boss');
+    playBGM('boss');
+  } else {
+    const pool = getMonsterPool(s.floor);
+    monster = pool[Math.floor(Math.random() * pool.length)];
+    const zone = Math.ceil(s.floor / 10);
+    const floorInZone = ((s.floor - 1) % 10) + 1;
+    eHP = Math.floor(25 + zone * 20 + floorInZone * 8 + Math.random() * 20);
+    eATK = Math.floor(6 + zone * 4 + floorInZone * 1.5 + Math.random() * 5);
+    addLog(`👹 <b>${monster.name}</b>が現れた！`);
+    playBGM('normal');
+  }
+
+  currentEnemyMaxHP = eHP;
+  document.getElementById('idle-state').style.display = 'none';
+  const md = document.getElementById('monster-display');
+  md.style.display = 'block';
+  document.getElementById('boss-badge').style.display = isBoss ? 'inline-block' : 'none';
+  drawMonsterDot(monster.key);
+  document.getElementById('monster-emoji').className = '';
+  document.getElementById('monster-name').textContent = monster.name;
+  document.getElementById('enemy-hp-val').textContent = eHP;
+  document.getElementById('enemy-atk-val').textContent = eATK;
+  document.getElementById('enemy-hp-bar').style.width = '100%';
+
+  runBattle(monster, eHP, eATK, doorType);
+}
+
+function runBattle(monster, eHP, eATK, doorType) {
+  const s = state;
+  // 念のため既存タイマーをクリア
+  if (battleInterval) { clearInterval(battleInterval); battleInterval = null; }
+
+  battleInterval = setInterval(() => {
+    // バトルが終了済みなら即リターン（二重発火防止）
+    if (!isFighting) return;
+
+    // --- Regen ---
+    const regen = s.skills.find(sk => sk.passive && sk.type === 'regen');
+    if (regen) { s.hp = Math.min(s.maxHP, s.hp + regen.val); updateStats(); }
+
+    // --- Player Attack ---
+    let dmg = s.atk + Math.floor(Math.random() * 6);
+
+    // Low HP amp
+    const lowHpAmp = s.skills.find(sk => sk.passive && sk.type === 'low_hp_amp');
+    if (lowHpAmp && s.hp / s.maxHP < 0.4) dmg = Math.floor(dmg * (1 + lowHpAmp.val));
+
+    const isCrit = Math.random() < (s.crit || 0.05);
+    let critMul = 1.8;
+    const critAmp = s.skills.find(sk => sk.passive && sk.type === 'crit_amp');
+    if (critAmp) critMul += critAmp.val;
+    if (isCrit) dmg = Math.floor(dmg * critMul);
+
+    const bonusDmg = s.skills.find(sk => sk.passive && sk.type === 'bonus_dmg');
+    if (bonusDmg) dmg += Math.floor(bonusDmg.val);
+
+    eHP -= dmg;
+    const em = document.getElementById('monster-emoji');
+    em.className = 'shake'; setTimeout(() => em.className = '', 400);
+    document.getElementById('enemy-hp-val').textContent = Math.max(0, eHP);
+    document.getElementById('enemy-hp-bar').style.width = Math.max(0, (eHP / currentEnemyMaxHP) * 100) + '%';
+
+    if (isCrit) { playSE('crit'); addLog(`⚔️ あなた → <b style="color:#f0d060">CRIT! ${dmg}ダメ！</b> (敵HP:${Math.max(0,eHP)})`, 'log-damage'); }
+    else { playSE('attack'); addLog(`⚔️ あなた → ${dmg}ダメ！ (敵HP:${Math.max(0,eHP)})`, 'log-damage'); }
+
+    // Lifesteal
+    const ls = s.skills.find(sk => sk.passive && sk.type === 'lifesteal');
+    if (ls) s.hp = Math.min(s.maxHP, s.hp + Math.floor(dmg * ls.val));
+
+    if (eHP <= 0) {
+      clearInterval(battleInterval);
+      battleInterval = null;
+      // isFightingはapplyReward完了まで trueのまま維持（扉の二重押し防止）
+      em.className = 'die';
+      setTimeout(() => {
+        playSE('victory');
+        document.getElementById('arena').classList.add('flash-gold');
+        setTimeout(() => document.getElementById('arena').classList.remove('flash-gold'), 400);
+        addLog(`✨ <b class="log-victory">${monster.name}を倒した！</b>`, 'log-victory');
+        s.wins++;
+        s.floor++;
+        updateStats();
+        showRewardModal(doorType);
+      }, 600);
+      return;
+    }
+
+    // --- Enemy Attack ---
+    // 鉄壁：被攻撃ごとに防御+1
+    const defRegen = s.skills.find(sk => sk.passive && sk.type === 'def_regen');
+    if (defRegen) { s.def = (s.def || 0) + 1; updateStats(); }
+    let eDmg = eATK + Math.floor(Math.random() * 5);
+    // 防御はダメージの最大40%まで軽減（防御100で40%軽減が上限）
+    const defRate = Math.min(0.40, (s.def || 0) / 250);
+    const reduced = Math.floor(eDmg * defRate);
+    eDmg = Math.max(1, eDmg - reduced);
+
+    // Reflect
+    const reflect = s.skills.find(sk => sk.passive && sk.type === 'reflect');
+    let reflectDmg = 0;
+    if (reflect) reflectDmg = Math.floor(eDmg * reflect.val);
+
+    s.hp -= eDmg;
+    em.className = 'attack-player'; setTimeout(() => em.className = '', 500);
+    updateStats();
+    playSE('hit');
+    const defNote = reduced > 0 ? ` <span style="color:#3498db">(防御-${reduced})</span>` : '';
+    const reflectNote = reflectDmg > 0 ? ` <span style="color:#a855f7">[反射${reflectDmg}]</span>` : '';
+    addLog(`💥 ${monster.name} → ${eDmg}ダメ！${defNote}${reflectNote} (HP:${Math.max(0,s.hp)})`, 'log-damage');
+
+    // Apply reflect to enemy
+    if (reflectDmg > 0) { eHP -= reflectDmg; document.getElementById('enemy-hp-val').textContent = Math.max(0, eHP); }
+
+    if (s.hp <= 0) { clearInterval(battleInterval); battleInterval = null; setTimeout(() => gameOver(monster), 400); }
+  }, 850);
+}
+
+// ===========================
+// REWARD
+// ===========================
+function showRewardModal(doorType) {
+  const isBossFloor = BOSSES.some(b => (b.floor + 1) === state.floor);
+  if (isBossFloor) {
+    playBGM('normal');
+  }
+  const card = document.getElementById('reward-card');
+  card.style.borderColor = doorType.frameLight;
+  card.style.boxShadow = `0 0 40px ${doorType.glowColor}, 0 20px 60px rgba(0,0,0,.8)`;
+  const title = document.getElementById('reward-title');
+  title.textContent = '⚔️ 勝利！';
+  title.style.color = doorType.frameLight;
+  document.getElementById('reward-sub').textContent = `${doorType.label}からの報酬を選べ`;
+  const choices = document.getElementById('reward-choices');
+  choices.innerHTML = '';
+  const pool = doorType.rewards;
+  const picks = pool.length <= 2 ? pool : shuffle(pool).slice(0, 2);
+  picks.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = `reward-btn ${doorType.rewardClass}`;
+    btn.innerHTML = `<span class="reward-btn-icon">${r.icon}</span><span>${r.label}</span><span class="reward-btn-desc">${r.desc}</span>`;
+    btn.onclick = () => applyReward(r);
+    choices.appendChild(btn);
+  });
+  document.getElementById('reward-modal').classList.add('active');
+}
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - .5); }
+
+function applyReward(r) {
+  document.getElementById('reward-modal').classList.remove('active');
+  playSE('powerup');
+  const msg = r.fn(state);
+  addLog(msg);
+  updateStats();
+  renderSkills();
+  document.getElementById('monster-display').style.display = 'none';
+  document.getElementById('idle-state').style.display = 'block';
+  isFighting = false;
+  assignNewDoors();
+  setDoors(true);
+  addLog(`📍 <span class="log-info">階層 ${state.floor} へ進む…</span>`, 'log-info');
+}
+
+// ===========================
+// GAME OVER (INHERIT SYSTEM)
+// ===========================
+function gameOver(monster) {
+  clearInterval(battleInterval);
+  battleInterval = null;
+  isFighting = false;
+  stopBGM();
+  playSE('gameover');
+  setDoors(false);
+
+  const bonusAtk = Math.floor(state.atk * 0.2);
+  const bonusDef = Math.floor((state.def || 0) * 0.2);
+  const bonusMaxHP = Math.floor((state.maxHP - 100) * 0.15 + 10);
+  inheritBonus.atk += bonusAtk;
+  inheritBonus.def += bonusDef;
+  inheritBonus.maxHP += bonusMaxHP;
+
+  document.getElementById('gameover-screen').classList.add('active');
+  document.getElementById('gameover-sub').textContent =
+    `${monster.name}に倒された… 階層${state.floor} / 勝利${state.wins}回`;
+  document.getElementById('gameover-inherit').innerHTML =
+    `💀 敗北の呪縛が力となる…<br>次回 攻撃+${inheritBonus.atk} / 防御+${inheritBonus.def} / 最大HP+${inheritBonus.maxHP} で開始`;
+}
+
+function restartGame() {
+  if (battleInterval) { clearInterval(battleInterval); battleInterval = null; }
+  state = initState();
+  isFighting = false;
+  document.getElementById('gameover-screen').classList.remove('active');
+  document.getElementById('monster-display').style.display = 'none';
+  document.getElementById('idle-state').style.display = 'block';
+  document.getElementById('log-list').innerHTML = '<li class="log-info">再び挑む…！</li>';
+  document.getElementById('boss-warning').classList.remove('active');
+  document.getElementById('skills-panel').innerHTML = '';
+  if (inheritBonus.atk > 0 || inheritBonus.def > 0 || inheritBonus.maxHP > 0) {
+    addLog(`💀 <span class="log-rare">敗北の遺産：攻撃+${inheritBonus.atk} / 防御+${inheritBonus.def} / 最大HP+${inheritBonus.maxHP} を引き継いだ！</span>`);
+  }
+  currentBGM = null;
+  updateStats();
+  assignNewDoors();
+  setDoors(true);
+}
+
+// ===========================
+// INIT
+// ===========================
+state = initState();
+updateStats();
+assignNewDoors();
+setDoors(true);
+</script>
+</body>
+</html>
